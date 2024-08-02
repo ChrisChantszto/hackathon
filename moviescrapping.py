@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 from time import sleep
+from tqdm import tqdm
 
 API_KEY = "50f2171bb8fa1065f50ceecb2a3e1669"
 BASE_URL = "https://api.themoviedb.org/3"
@@ -21,7 +22,7 @@ def fetch_movie_details(movie_id):
 
 movies = []
 
-for movie_id in range(1, 1001):
+for movie_id in tqdm(range(1, 50)):
     movie = fetch_movie_details(movie_id)
     if movie:
         movies.append(movie)
