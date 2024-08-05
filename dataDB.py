@@ -4,6 +4,7 @@ import os
 from tidb_vector.integrations import TiDBVectorClient
 from dotenv import load_dotenv
 import uuid
+from tqdm import tqdm
 
 # load the environment variables
 load_dotenv()
@@ -12,10 +13,20 @@ print("Downloading and loading the embedding model...")
 embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 embed_model_dims = embed_model.get_sentence_embedding_dimension()
 
+def safe_text(text):
+    if pd.isna(text):
+        return ""
+    return str(text)
+
 def text_to_embedding(text):
     """Generates vector embeddings for the given text."""
-    embedding = embed_model.encode(text)
-    return embedding.tolist()
+    try:
+        embedding = embed_model.encode(text)
+        return embedding.tolist()
+    except Exception as e:
+        print(f"Error encoding text: {text}")
+        print(f"Error: {e}")
+        return [0] * embed_model_dims  # Return a zero vector of the correct dimension
 
 vector_store = TiDBVectorClient(
     table_name='movies',
@@ -24,14 +35,19 @@ vector_store = TiDBVectorClient(
     drop_existing_table=True,
 )
 
+print("Loading movie data...")
 df_movies = pd.read_csv("movies.csv")
 
 documents = []
-for _, row in df_movies.iterrows():
+print("Generating embeddings and preparing documents...")
+for _, row in tqdm(df_movies.iterrows(), total=len(df_movies), desc="Processing movies"):
+    overview = safe_text(row['overview'])
+    if not overview:
+        continue  # Skip this row if the overview is empty
     doc = {
         "id": str(uuid.uuid4()),
-        "text": row['overview'],
-        "embedding": text_to_embedding(row['overview']),
+        "text": overview,
+        "embedding": text_to_embedding(overview),
         "metadata": {
             "movie_id": row['id'],
             "title": row['title'],
@@ -41,12 +57,12 @@ for _, row in df_movies.iterrows():
     }
     documents.append(doc)
 
-# Insert data into TiDB
+print("Inserting data into TiDB...")
 vector_store.insert(
-    ids=[doc["id"] for doc in documents],
-    texts=[doc["text"] for doc in documents],
-    embeddings=[doc["embedding"] for doc in documents],
-    metadatas=[doc["metadata"] for doc in documents],
+    ids=tqdm([doc["id"] for doc in documents], desc="Inserting IDs"),
+    texts=tqdm([doc["text"] for doc in documents], desc="Inserting texts"),
+    embeddings=tqdm([doc["embedding"] for doc in documents], desc="Inserting embeddings"),
+    metadatas=tqdm([doc["metadata"] for doc in documents], desc="Inserting metadata"),
 )
 
 print(f"Stored {len(documents)} movies in TiDB")
