@@ -22,7 +22,7 @@ def fetch_movie_details(movie_id):
 
 movies = []
 
-for movie_id in tqdm(range(1, 1001)):
+for movie_id in tqdm(range(1, 9999)):
     movie = fetch_movie_details(movie_id)
     if movie:
         movies.append(movie)
