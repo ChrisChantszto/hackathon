@@ -22,12 +22,12 @@ def fetch_movie_details(movie_id):
 
 movies = []
 
-for movie_id in tqdm(range(1, 9999)):
+for movie_id in tqdm(range(1, 65000)):
     movie = fetch_movie_details(movie_id)
     if movie:
         movies.append(movie)
     sleep(0.5)
 
 df_movies = pd.DataFrame(movies)
-df_movies.to_csv("movies.csv", index=False)
+df_movies.to_csv("movies_on.csv", index=False)
 print(f"Fetched {len(movies)} movies")
