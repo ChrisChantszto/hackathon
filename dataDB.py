@@ -36,7 +36,7 @@ vector_store = TiDBVectorClient(
 )
 
 print("Loading movie data...")
-df_movies = pd.read_csv("movies.csv")
+df_movies = pd.read_csv("movies_on.csv")
 
 documents = []
 print("Generating embeddings and preparing documents...")
@@ -51,18 +51,22 @@ for _, row in tqdm(df_movies.iterrows(), total=len(df_movies), desc="Processing 
         "metadata": {
             "movie_id": row['id'],
             "title": row['title'],
-            "release_date": row['release_date'],
             "genres": row['genres']
         }
     }
     documents.append(doc)
 
 print("Inserting data into TiDB...")
-vector_store.insert(
-    ids=tqdm([doc["id"] for doc in documents], desc="Inserting IDs"),
-    texts=tqdm([doc["text"] for doc in documents], desc="Inserting texts"),
-    embeddings=tqdm([doc["embedding"] for doc in documents], desc="Inserting embeddings"),
-    metadatas=tqdm([doc["metadata"] for doc in documents], desc="Inserting metadata"),
-)
+chunk_size = 1000
+pbar = tqdm(range(0, len(documents), chunk_size), desc="Inserting chunks")
+for i in pbar:
+    chunk = documents[i:i + chunk_size]
+    vector_store.insert(
+        ids=[doc["id"] for doc in chunk],
+        texts=[doc["text"] for doc in chunk],
+        embeddings=[doc["embedding"] for doc in chunk],
+        metadatas=[doc["metadata"] for doc in chunk],
+    )
+    pbar.set_description(f"Inserted {i+chunk_size} documents")
 
 print(f"Stored {len(documents)} movies in TiDB")
